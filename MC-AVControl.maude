@@ -1,0 +1,110 @@
+load model-checker.maude
+
+*** Predicates for model-checking ***
+mod INTERSECTION-PREDS is
+    pr INTERSECTION-RL .
+    including SATISFACTION .
+
+    *** Configuration as subsort of State ***
+    subsort Config < State .
+
+    *** Declaration of predicates ***
+    --- At some point in time, execution ends (Deadlock-freedom)
+    --- execution-end = [] <> end .
+    op executionEnd : -> Prop .
+
+    op inIntersection : Nat -> Prop .
+    op waitIntersection : Nat -> Prop .
+    op exitIntersection : Nat -> Prop .
+
+    *** Variables ***
+    var LSet LSet' : LaneSet .
+    var VSet VSet' : VehicleSet .
+    vars T VT VT' VT2 VT2' VT3 VT3' VT4 VT4' : Time .
+    var B B' B'' : Bool .
+    vars LId LId' LId1 LId2 LId3 LId4 : Id .
+    vars VId VId' VId1 VId2 VId3 VId4 : Id .
+    vars VList VList' VList1 VList2 VList3 VList4 : NatList .
+    vars VSt1 VSt2 VSt3 VSt4 : VStat .
+
+    *** Auxiliary equations ***
+    
+
+    *** Equations for state predicates ***
+    --- Equation for when reaching the end state fulfilled. All vehicles have crossed the intersection successfully
+    eq { (fstat: end) | (istat: false) | (clock: T, false, true) | (l[0]: nil) ;; (l[1]: nil) ;; (l[2]: nil) ;; (l[3]: nil) ;; (l[4]: nil) ;; (l[5]: nil) | VSet } |= executionEnd = true .
+
+    --- Equation that checks the intersection's state and the state of the vehicle (occupied)
+    eq { (fstat: nEnd) | (istat: true) | (clock: T, B, B') | LSet | VSet ;; (v[VId]: LId, crossing, VT, VT') } |= inIntersection(VId) = true .
+
+    --- Equation that checks the intersection's state and the state of the vehicle (waiting)
+    eq { (fstat: nEnd) | (istat: B) | (clock: T, B', B'') | LSet | VSet ;; (v[VId]: LId, stopped, VT, VT') } |= waitIntersection(VId) = true .
+
+    eq { (fstat: nEnd) | (istat: true) | (clock: T, B, B') | LSet | VSet ;; (v[VId]: LId, crossed, VT, VT') } |= exitIntersection(VId) = true .
+
+endm
+
+mod INTERSECTION-CHECK is
+    pr INTERSECTION-PREDS .
+    including MODEL-CHECKER .
+    including LTL-SIMPLIFIER .
+
+    *** Initial States ***
+    ops init1 init2 init3 init4 init5 init6 : -> Config .
+    
+    --- Definition of initial state
+    eq init1 = {
+            (fstat: nEnd) | (istat: false) | (clock: 0, false, false) |
+            (l[0]: nil) ;; (l[1]: nil) ;; (l[2]: nil) ;;
+            (l[3]: nil) ;; (l[4]: nil) ;; (l[5]: nil) |
+            (v[0]: 0, circulating, 100, 100) ;;
+            (v[1]: 1, circulating, 100, 100) 
+        } .
+
+    eq init2 = {
+            (fstat: nEnd) | (istat: false) | (clock: 0, false, false) |
+            (l[0]: nil) ;; (l[1]: nil) ;; (l[2]: nil) ;;
+            (l[3]: nil) ;; (l[4]: nil) ;; (l[5]: nil) |
+            (v[0]: 0, circulating, 100, 100) ;;
+            (v[1]: 2, circulating, 100, 100) 
+        } .
+
+    eq init3 = {
+            (fstat: nEnd) | (istat: false) | (clock: 0, false, false) |
+            (l[0]: nil) ;; (l[1]: nil) ;; (l[2]: nil) ;;
+            (l[3]: nil) ;; (l[4]: nil) ;; (l[5]: nil) |
+            (v[0]: 0, circulating, 100, 100) ;;
+            (v[1]: 4, circulating, 100, 100) 
+        } .
+
+    eq init4 = {
+            (fstat: nEnd) | (istat: false) | (clock: 0, false, false) |
+            (l[0]: nil) ;; (l[1]: nil) ;; (l[2]: nil) ;;
+            (l[3]: nil) ;; (l[4]: nil) ;; (l[5]: nil) |
+            (v[0]: 0, circulating, 100, 100) ;;
+            (v[1]: 0, circulating, 100, 100) ;;
+            (v[2]: 0, circulating, 100, 100) ;;
+            (v[3]: 0, circulating, 100, 100)  
+        } .
+    
+    eq init5 = {
+            (fstat: nEnd) | (istat: false) | (clock: 0, false, false) |
+            (l[0]: nil) ;; (l[1]: nil) ;; (l[2]: nil) ;;
+            (l[3]: nil) ;; (l[4]: nil) ;; (l[5]: nil) |
+            (v[0]: 0, circulating, 100, 100) ;;
+            (v[1]: 2, circulating, 100, 100) ;;
+            (v[2]: 3, circulating, 100, 100) ;;
+            (v[3]: 4, circulating, 100, 100)  
+        } .
+
+    eq init6 = {
+            (fstat: nEnd) | (istat: false) | (clock: 0, false, false) |
+            (l[0]: nil) ;; (l[1]: nil) ;; (l[2]: nil) ;;
+            (l[3]: nil) ;; (l[4]: nil) ;; (l[5]: nil) |
+            (v[0]: 0, circulating, 100, 100) ;;
+            (v[1]: 0, circulating, 100, 100) ;;
+            (v[2]: 3, circulating, 100, 100) ;;
+            (v[3]: 4, circulating, 100, 100)  
+        } .
+
+endm
