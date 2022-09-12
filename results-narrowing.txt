@@ -1,0 +1,26 @@
+{ (fstat: nEnd) | (istat: false) | (clock: 0, false, false) | (l[0]: nil) ;; (l[1]: nil) ;; (l[2]: nil) ;; (l[3]: nil) ;; (l[4]: nil) ;; (l[5]: nil) | (v[0]: 0, circulating, 100, 100) ;; (v[1]: 0, circulating, 100, 100) ;; (v[2]: 0, circulating, 100, 100) ;; (v[3]: 0, circulating, 100, 100) }
+
+
+
+*** REACHABILITY ***
+--- Arrive at a state where second car in lane arrives before first (Maintain order)
+vu-narrow { (fstat: nEnd) | (istat: false) | (clock: 0, false, false) | (l[0]: nil) ;; (l[1]: nil) ;; (l[2]: nil) ;; (l[3]: nil) ;; (l[4]: nil) ;; (l[5]: nil) | (v[0]: 0, circulating, 100, 100) ;; (v[1]: X:Nat, circulating, 100, 100) } =>* { (fstat: nEnd) | (istat: false) | (clock: C:Nat, B:Bool, B':Bool) | (l[0]: NL0:NatList) ;; (l[1]: NL1:NatList) ;; (l[2]: NL2:NatList) ;; (l[3]: NL3:NatList) ;; (l[4]: NL4:NatList) ;; (l[5]: NL5:NatList) | (v[0]: 0, stopping, 0, 0) ;; (v[1]: X:Nat, stopped, T:Nat, T':Nat) } .
+
+vu-narrow [1] in INTERSECTION-RL : {fstat: nEnd | istat: false | clock: 0,false,false | (((((l[4]: nil) ;; l[5]: nil) ;; l[3]: nil)
+    ;; l[2]: nil) ;; l[1]: nil) ;; l[0]: nil | (v[0]: 0,circulating,100,100) ;; v[1]: 0,circulating,100,100} =>* {fstat: nEnd |
+    istat: B | clock: X:Nat,B1:Bool,B2:Bool | (l[0]: NL0:NatList) ;; (l[1]: NL1:NatList) ;; (l[2]: NL2:NatList) ;; (l[3]:
+    NL3:NatList) ;; (l[4]: NL0:NatList) ;; l[5]: NL5:NatList | (v[0]: 0,stopping,T:Nat,T:Nat) ;; v[1]: 0,stopped,T:Nat,T':Nat} .
+
+No solution.
+rewrites: 1594 in 723ms cpu (833ms real) (2204 rewrites/second)
+
+
+
+--- Lane priority is maintained (Secondary lane does not cross before priority lane)
+vu-narrow { (fstat: nEnd) | (istat: false) | (clock: 0, false, false) | (l[0]: nil) ;; (l[1]: nil) ;; (l[2]: nil) ;; (l[3]: nil) ;; (l[4]: nil) ;; (l[5]: nil) | (v[0]: 0, circulating, 100, 100) ;; (v[1]: X:Nat, circulating, 100, 100) } =>* { (fstat: nEnd) | (istat: true) | (clock: T:Nat, B:Bool, B':Bool) | (l[0]: NL0:NatList) ;; (l[1]: NL1:NatList) ;; (l[2]: NL2:NatList) ;; (l[3]: NL3:NatList) ;; (l[4]: NL4:NatList) ;; (l[5]: NL5:NatList) | (v[0]: 0, stopped, T1:Nat, T1':Nat) ;; (v[1]: X:Nat, crossing, T2:Nat, T2':Nat) } .
+
+
+--- Vehicles can only advance, not go backwards
+vu-narrow { (fstat: nEnd) | (istat: true) | (clock: T:Nat, B:Bool, B':Bool) | (l[0]: 0 N0:NatList) ;; (l[1]: N1:NatList) ;; (l[2]: N2:NatList) ;; (l[3]: N3:NatList) ;; (l[4]: N4:NatList) ;; (l[5]: N5:NatList) | (v[0]: X:Nat, crossing, VT:Nat, VT':Nat) } =>* { (fstat: nEnd) | (istat: true) | (clock: T:Nat, B:Bool, B':Bool) | (l[0]: 0 N0:NatList) ;; (l[1]: N1:NatList) ;; (l[2]: N2:NatList) ;; (l[3]: N3:NatList) ;; (l[4]: N4:NatList) ;; (l[5]: N5:NatList) | (v[0]: X:Nat, stopped, VT:Nat, VT':Nat) } .
+
+--- 
