@@ -1,0 +1,62 @@
+Maude> red modelCheck(init1, <> execution-end) .
+reduce in INTERSECTION-CHECK : modelCheck(init1, <> execution-end) .
+rewrites: 40 in 0ms cpu (0ms real) (99750 rewrites/second)
+result Bool: true
+Maude> red modelCheck(init1, [] <> execution-end) .
+reduce in INTERSECTION-CHECK : modelCheck(init1, []<> execution-end) .
+rewrites: 45 in 0ms cpu (0ms real) (124653 rewrites/second)
+result Bool: true
+
+
+--------------------------------------------------------------------------
+
+*** VERIFIABLE PROPERTIES ***
+--- LIVENESS ---
+--- At some point in time, execution ends
+--- eq execution-end = <> end .
+--- Two vehicles in non-conflicting lanes can cross at the same time
+--- Deadlock freedom
+--- eq deadlock-freedom = [] init-inter => end .
+--- eq priority-preservation = [] isPriority(L1:Nat) => not isPriority(L2:Nat)
+--- Two vehicles cannot arrive at the same time in the same lane
+--- eq consistency = [] (v[VId]: LId, VSt, VT, VT'), (v[VId']: LId, Vst', VT'', VT''') where VT != VT''
+
+
+    
+
+    --- SECURITY PROPERTIES ---
+    --- A vehicle will not switch lanes until it has exited the intersection
+    --- (lane[LId]: VId VList) => [] )(lane[LId]: VId VList) W (v[VId]: LId, crossed, VT, VT')) .
+    ----eq < { (fstat: nEnd) | (istat: false) | (clock: 0, false) | LSet (l[LId]: VId VList) | VSet (v[VId]: LId, VStat, VT, VT') } > |=
+
+    ---vu-narrow [1, 50] { (fstat: nEnd) | (istat: true) | (clock: T, B) | LSet (l[LId]: (VId VList)) | VSet (v[VId]: LId, crossing, VT, VT') } =>*{ (fstat: nEnd) | (istat: false) | (clock: T, B) | LSet (l[LId]: (VList)) | VSet (v[VId]: LId, crossed, VT, VT') } .
+
+---load model-checker.maude
+
+---search [1] init =>* { (v[VId]: LId, crossing, VT, VT') (v[VId']: LId', crossing, T2, T2') Els } such that areConflict(LId, LId') .
+*** VERIFIABLE PROPERTIES ***
+--- LIVENESS ---
+--- At some point in time, execution ends (Deadlock-freedom)
+--- eq execution-end = [] <> end .
+--- Two vehicles in non-conflicting lanes can cross at the same time
+--- eq non-conflict-cross = [] (v[VId]: LId, crossing, VT, VT') (v[VId']: LId', crossing, VT2, VT2') ^ ¬ areConflict(LId, LId')
+--- SECURITY ---
+--- Two vehicles from conflicting lanes cannot enter the intersection at the same time
+--- eq conflict-no-cross = ¬ [] (v[VId]: LId, crossing, VT, VT') (v[VId']: LId', crossing, VT2, VT2') ^ areConflict(LId, LId')
+--- Vehicles in secondary lanes will cross after vehicles in main lane
+--- eq priority-preservation = [] isPriority(L1:Nat) -> not isPriority(L2:Nat)
+--- Two vehicles cannot arrive at the same time in the same lane
+--- eq consistency = [] (v[VId]: LId, VSt, VT, VT'), (v[VId']: LId, Vst', VT'', VT''') where VT != VT''
+--- REACHABILITY ---
+--- There cannot be two vehicles crossing at the same time if their lanes are in conflict (through search)
+--- search [1] init-inter => { (fstat: nEnd) | (istat: true) | (clock: T, B) | LSet | VSet (v[VId]: LId, crossing, VT, VT') (v[Id']: LId', crossing, VT2, VT2')} such that areConflict(LId, LId') .
+
+---search [1] init =>* { (v[VId]: LId, crossing, VT, VT') (v[VId']: LId', crossing, T2, T2') Els } such that areConflict(LId, LId') .
+
+--- REACHABILITY ---
+--- There cannot be two vehicles crossing at the same time if their lanes are in conflict
+---search [1, 50] init-inter =>* { (fstat: nEnd) | (istat: true) | (clock: T, B) | LSet | VSet (v[VId]: LId, crossing, VT, VT') (v[VId']: LId', crossing, VT2, VT2')} such that areConflict(LId, LId') .
+
+---vu-narrow [1] init-inter1 =>* { (fstat: end) | (istat: true) | (clock: T, B) | LSet | VSet (v[VId]: LId, crossed, VT, VT') } .
+---vu-narrow [1] { (fstat: nEnd) | (istat: false) | (clock: 0, false) | (l[0]: nil) (l[1]: nil) (l[2]: nil) (l[3]: nil) (l[4]: nil) (l[5]: nil) | (v[0]: LId, circulating, 100, 100) }  =>*  { (fstat: nEnd) | (istat: false) | (clock: T, true) | LSet (l[LId]: VId) | VSet (v[VId]: LId, stopped, T, T) } .
+
