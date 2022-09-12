@@ -1,0 +1,352 @@
+*** NatList and NotEmptyNatList ***
+fmod NATURAL-LIST is  
+    protecting NAT .  
+    sorts NeNatList NatList .  
+    subsort Nat < NeNatList < NatList .  
+ 
+    op nil : -> NatList [ctor] .  
+    op __ : NatList NatList -> NatList [ctor assoc id: nil prec 25] .  
+    op __ : NeNatList NatList -> NeNatList [ctor ditto] .  
+    op __ : NatList NeNatList -> NeNatList [ctor ditto] .  
+
+endfm 
+
+*** Representation of the status of the execution ***
+fmod FSTATUS is
+
+    sort FStatus .
+    ops nEnd end : -> FStatus [ctor] .
+
+endfm
+
+*** Representation of the status of the vehicle ***
+fmod VSTATUS is
+
+    sort VStat .
+    --- Indicates what the vehicle is doing in relation to the intersection
+    ops circulating stopping stopped waiting crossing crossed : -> VStat [ctor] .
+
+endfm
+
+*** Representation of the intersection ***
+fmod INTERSECTION is
+    pr STRING .
+    pr NAT .
+    pr NATURAL-LIST .
+    pr FSTATUS .
+    pr VSTATUS .
+
+    *** Components of the intersection ***
+    --- Finality status checker: representation of the state of the execution, checking if all vehicles have crossed
+    sort FStat .
+    op (fstat:_) : FStatus -> FStat [ctor] .
+
+    --- Intersection status checker: representation of whether the intersection is occupied or not
+    sort IStat .
+    op (istat:_) : Bool -> IStat [ctor] .
+
+    --- Clock: the global clock shared by all devices
+    sort Clock .
+    op (clock:_,_,_) : Nat Bool Bool -> Clock [ctor] . --- Time and boolean for advancement + boolean to check if the execution can end
+
+    --- Ids and Timestamps
+    sorts Id Time .
+    subsorts Nat < Id Time .
+
+    --- Lanes: where vehicles are located during execution
+    sorts Lane LaneSet .
+    subsort Lane < LaneSet .
+    op none : -> LaneSet [ctor] .
+    op _;;_ : LaneSet LaneSet -> LaneSet [assoc comm id: none] .
+    op (l[_]:_) : Id NatList -> Lane [ctor] . --- LaneID and VehicleList
+    
+    --- Vehicles: the main component of the intersection
+    sorts Vehicle VehicleSet .
+    subsort Vehicle < VehicleSet .
+    op none : -> VehicleSet [ctor] .
+    op _;;_ : VehicleSet VehicleSet -> VehicleSet [assoc comm id: none] .
+    op (v[_]:_,_,_,_) : Id Nat VStat Time Time -> Vehicle [ctor] . --- VehicleID, LaneID, Status, ArrivalTimeFirstCar, ArrivalTime
+
+endfm
+
+*** Initial configurations ***
+fmod CONFIG is
+    pr INTERSECTION .
+
+    sort Config .
+    op {_|_|_|_|_} : FStat IStat Clock LaneSet VehicleSet -> Config [ctor] .
+
+    *** INITIAL CONFIGURATIONS *** 
+    --- Default configuration with multiple vehicles
+
+    ---op init : -> Config .
+    ---eq init = {(fstat: nEnd) | (istat: false) | (clock: 0, false, false) | (l[0]: nil) | (v[0]: X:Nat, circulating, 100, 100)} .
+    
+    op init-inter : -> Config .
+    eq init-inter = {
+            (fstat: nEnd) | (istat: false) | (clock: 0, false, false) |
+            (l[0]: nil) ;; (l[1]: nil) ;; (l[2]: nil) ;;
+            (l[3]: nil) ;; (l[4]: nil) ;; (l[5]: nil) |
+            (v[0]: 0, circulating, 100, 100) ;;
+            (v[1]: 0, circulating, 100, 100) ;;
+            (v[2]: 0, circulating, 100, 100) ;;
+            (v[3]: 0, circulating, 100, 100)
+        } .
+
+    
+   
+endfm
+
+fmod INTERSECTION-EQ is
+    pr EXT-BOOL .
+    pr CONFIG .
+    
+    *** Variables ***
+    var LSet : LaneSet .
+    var VSet : VehicleSet .
+    var T : Time .
+    var B B' : Bool .
+    vars LId LId' : Id .
+    vars VId VId' : Id .
+    vars VT VT' VT2 VT2' : Time .
+    var  VList VList1 VList2 VList3 : NatList .
+    vars VSt : VStat .
+
+    *** Equations ***
+    --- Check if all vehicles have approached the intersection
+    op haveApproached? : VehicleSet -> Bool .
+    eq haveApproached?(none) = true .
+    eq haveApproached?((v[VId]: LId, VSt, VT, VT') ;; VSet) = 
+        VSt =/= circulating and-then end?(VSet) [variant] .
+
+    --- Check if all vehicles have crossed the intersection
+    op end? : VehicleSet -> Bool .
+    eq end?(none) = true .
+    eq end?((v[VId]: LId, VSt, VT, VT') ;; VSet) = 
+        VSt == crossed and-then end?(VSet) [variant] .
+
+    --- Determine which lanes have priority over others
+    op isPriorityLane : Nat -> Bool .
+    eq isPriorityLane(LId) =  
+        LId == 0 or
+        LId == 1 or
+        LId == 3 or
+        LId == 4 [variant] .
+
+    --- Check if a lane is in the center or the edge
+    op isEdge : Nat -> Bool .
+    eq isEdge(LId) = 
+        LId == 0 or
+        LId == 3 [variant] .
+
+    --- Check if two lanes are conflicting
+    op areConflict : Nat Nat -> Bool .
+    eq areConflict(LId, LId') =
+        if isPriorityLane(LId) then 
+            if isEdge(LId) then
+                LId' ==  (LId + 2) rem 6 or
+                LId' ==  (LId + 4) rem 6 or
+                LId' ==  (LId + 5) rem 6 
+            else
+                LId' ==  (LId + 1) rem 6 or
+                LId' ==  (LId + 2) rem 6 or
+                LId' ==  (LId + 3) rem 6 or
+                LId' ==  (LId + 4) rem 6 
+            fi
+        else
+            LId' ==  (LId + 1) rem 6 or
+            LId' ==  (LId + 2) rem 6 or
+            LId' ==  (LId + 4) rem 6 or
+            LId' ==  (LId + 5) rem 6
+        fi [variant] .
+
+    --- Check if all prioritary cars have crossed
+    op canSecondaryEnter : LaneSet -> Bool .
+    eq canSecondaryEnter(none) = false .
+    eq canSecondaryEnter((l[0]: VList) ;; (l[1]: VList1) ;; (l[3]: VList2) ;; (l[4]: VList3) ;; LSet) = 
+        if VList == nil and VList1 == nil and VList2 == nil and VList3 == nil
+        then true
+        else false
+        fi [variant] .
+
+    ---
+    op stopVehicle : VehicleSet -> VehicleSet .
+    eq stopVehicle(none) = none [variant] .
+    eq stopVehicle((v[VId]: LId, stopping, VT, VT') ;; VSet) =
+        if isMinStop((v[VId]: LId, stopping, VT, VT'), VSet)
+        then (v[VId]: LId, stopped, VT, VT') ;; VSet
+        else (v[VId]: LId, stopping, VT, VT') ;; stopVehicle(VSet) 
+        fi [variant] .
+
+    ---
+    op isMinStop : Vehicle VehicleSet -> Bool .
+    eq isMinStop((v[VId]: LId, stopping, VT, VT'), none) = true [variant] .
+    eq isMinStop((v[VId]: LId, stopping, VT, VT'), (v[VId']: LId', VSt, VT2, VT2') ;; VSet) =
+        if VSt == stopping 
+        then 
+            if VT' < VT2'
+            then true and-then isMinStop((v[VId]: LId, stopping, VT, VT'), VSet)
+            else false
+            fi
+        else isMinStop((v[VId]: LId, stopping, VT, VT'), VSet)
+        fi [variant] .
+
+    --- Set all waiting cars from WAITING to STOPPED again
+    op checkWaiting : VehicleSet -> VehicleSet .
+    eq checkWaiting(none) = none .
+    eq checkWaiting(((v[VId]: LId, VSt, VT, VT') ;; VSet)) = 
+        if VSt == waiting 
+        then 
+            (v[VId]: LId, stopped, VT, VT') ;; checkWaiting(VSet)
+        else 
+            (v[VId]: LId, VSt, VT, VT') ;; checkWaiting(VSet)
+        fi [variant] .
+
+    --- Once first vehicle is crossing, allow all vehicles to cross
+    op letCross : NatList VehicleSet -> VehicleSet .
+    eq letCross(VList, none) = none .
+    eq letCross(VList, ((v[VId]: LId, VSt, VT, VT') ;; VSet)) = 
+        if VId in VList and VSt == stopped then (v[VId]: LId, crossing, VT, VT') ;; letCross(VList, VSet)
+        else (v[VId]: LId, VSt, VT, VT') ;; letCross(VList, VSet)
+        fi [variant] .
+    
+    op _in_ : Nat NatList -> Bool .
+    eq VId in nil = false .
+    eq VId in (H:Nat T:NatList) = VId == H:Nat or-else 
+        VId in T:NatList [variant] .
+
+    op isOccupied : VehicleSet -> Bool .
+    eq isOccupied(none) = false .
+    eq isOccupied((v[VId]: LId, VSt, VT, VT') ;; VSet) =
+        if VSt == crossing
+        then true
+        else isOccupied(VSet)
+        fi [variant] .
+
+    op resetHead : NatList Vehicle VehicleSet -> VehicleSet .
+    eq resetHead(VId VList, (v[VId]: LId, stopped, VT, VT'), none) = none [variant] .
+    eq resetHead(VId VList, (v[VId]: LId, stopped, VT, VT'), (v[VId']: LId, VSt, VT2, VT2') ;; VSet) =
+        if VId' in VList and VSt == stopped
+        then (v[VId']: LId, stopped, VT', VT2') ;; resetHead(VId VList, (v[VId]: LId, stopped, VT, VT'), VSet)
+        else (v[VId']: LId, VSt, VT2, VT2') ;; resetHead(VId VList, (v[VId]: LId, stopped, VT, VT'), VSet)
+        fi [variant] .
+
+endfm
+
+mod INTERSECTION-RL is
+    pr INTERSECTION-EQ .
+    inc CONFIG .
+
+    *** Variables ***
+    var LSet LSet' : LaneSet .
+    var VSet VSet' : VehicleSet .
+    vars T VT VT' VT2 VT2' VT3 VT3' VT4 VT4' : Time .
+    var B B' : Bool .
+    vars LId LId' LId1 LId2 LId3 LId4 : Id .
+    vars VId VId' VId1 VId2 VId3 VId4 : Id .
+    vars VList VList' VList1 VList2 VList3 VList4 : NatList .
+    vars VSt1 VSt2 VSt3 VSt4 : VStat .
+
+    *** Rules ***
+
+    --- End: arrived at end of execution. All vehicles have crossed the intersection
+    rl [end] : 
+    { (fstat: nEnd) | (istat: false) | (clock: VT, B, true) | (l[0]: nil) ;; (l[1]: nil) ;; (l[2]: nil) ;; (l[3]: nil) ;; (l[4]: nil) ;; (l[5]: nil) | VSet } => 
+    if end?(VSet)
+    then 
+        { (fstat: end) | (istat: false) | (clock: VT, B, true) | (l[0]: nil) ;; (l[1]: nil) ;; (l[2]: nil) ;; (l[3]: nil) ;; (l[4]: nil) ;; (l[5]: nil) | VSet } 
+    else 
+        { (fstat: nEnd) | (istat: false) | (clock: VT, B, true) | (l[0]: nil) ;; (l[1]: nil) ;; (l[2]: nil) ;; (l[3]: nil) ;; (l[4]: nil) ;; (l[5]: nil) | VSet }
+    fi [narrowing] .
+
+    --- Tick: ticking of clock to pass time. If all vehicles have approached the intersection, the execution can continue until properly ending.
+    rl [tick] :
+    { (fstat: nEnd) | (istat: false) | (clock: T, true, B) | LSet | VSet } 
+    =>
+    { (fstat: nEnd) | (istat: false) | (clock: (T + 1) rem 10, false, B) | LSet | VSet } [narrowing] .
+
+    --- Arrive: they make the vehicle go from CIRCULATING to STOPPING. Arrive at intersection
+    --- Two transitions:
+    --- Head vehicle in the lane (lane is empty upon arrival)
+    rl [arrive1] :
+    { (fstat: nEnd) | (istat: false) | (clock: T, false, B) | LSet ;; (l[LId]: nil) | VSet ;; (v[VId]: LId, circulating, 100, 100) } 
+    =>
+    { (fstat: nEnd) | (istat: false) | (clock: T, true, B) | LSet ;; (l[LId]: VId) | VSet ;; (v[VId]: LId, stopping, T, T) } [narrowing] .
+
+    --- Not head vehicle in the lane (lane has vehicles already upon arrival)
+    rl [arrive2] :
+    { (fstat: nEnd) | (istat: false) | (clock: T, false, B) | LSet ;; (l[LId]: (VId VList)) | VSet ;; (v[VId]: LId, VSt1, VT, VT) ;; (v[VId']: LId, circulating, 100, 100) } 
+    =>
+    { (fstat: nEnd) | (istat: false) | (clock: T, true, B) | LSet ;; (l[LId]: (VId (VList VId'))) | VSet ;; (v[VId]: LId, VSt1, VT, VT) ;; (v[VId']: LId, stopping, VT, T) } [narrowing] .
+
+    --- Stop: it makes the vehicle go from STOPPING to STOPPED. Stop at intersection
+    --- One transition:
+    rl [stop1] :
+    { (fstat: nEnd) | (istat: false) | (clock: T, false, B) | LSet | VSet ;; (v[VId]: LId, stopping, VT, VT') } 
+    =>
+    { (fstat: nEnd) | (istat: false) | (clock: T, false, B) | LSet | stopVehicle((v[VId]: LId, stopping, VT, VT') ;; VSet) } [narrowing] .
+
+    --- Reset: when head vehicle has crossed the intersection, make new first stopped vehicle the head of the lane.
+    --- One transition:
+    --- Rule for head vehicle stopping
+    rl [reset] :
+    { (fstat: nEnd) | (istat: false) | (clock: T, false, B) | LSet ;; (l[LId]: VId' VList) | VSet ;; (v[VId]: LId, crossed, VT, VT) ;; (v[VId']: LId, stopped, VT, VT') } 
+    =>
+    { (fstat: nEnd) | (istat: false) | (clock: T, false, B) | LSet ;; (l[LId]: VId' VList) | (v[VId]: LId, crossed, VT, VT) ;; (v[VId']: LId, stopped, VT', VT') ;; resetHead(VId' VList, (v[VId']: LId, stopped, VT', VT'), VSet) }  [narrowing] .
+
+    --- Enter: they make the vehicle go from STOPPED to CROSSING. Enter intersection
+    --- Three transitions:
+    --- Head vehicle can enter the intersection and intersection is empty. Must check if vehicle is in prioritary lane
+    ---- If prioritary -> enter the intersection immediately
+    ---- If not prioritary -> wait until all prioritary vehicles have crossed
+    rl [enter1] :
+    { (fstat: nEnd) | (istat: false) | (clock: T, B, B') | LSet ;; (l[LId]: VList) | VSet ;; (v[VId]: LId, stopped, VT, VT) } 
+    =>
+    if isPriorityLane(LId)
+    then
+        { (fstat: nEnd) | (istat: true) | (clock: T, B, B') | LSet ;; (l[LId]: VList) | (v[VId]: LId, crossing, VT, VT) ;; letCross(VList, VSet) }
+    else
+        if canSecondaryEnter(LSet)
+        then
+            { (fstat: nEnd) | (istat: true) | (clock: T, B, B') | LSet ;; (l[LId]: VList) | (v[VId]: LId, crossing, VT, VT) ;; letCross(VList, VSet) }
+        else
+            { (fstat: nEnd) | (istat: false) | (clock: T, B, B') | LSet ;; (l[LId]: VList) | VSet ;; (v[VId]: LId, waiting, VT, VT) }
+        fi
+    fi [narrowing] .
+
+    --- Intersection has car. Check to see if lanes are prioritary and in conflict
+    ---- If prioritary and no conflict -> enter the intersection immediately
+    ---- If not prioritary or has conflict -> wait until all other prioritary vehicles have crossed
+    rl [enter2] :
+    { (fstat: nEnd) | (istat: true) | (clock: T, B, B') | LSet ;; (l[LId']: VList) | VSet ;; (v[VId]: LId, crossing, VT, VT) ;; (v[VId']: LId', stopped, VT2, VT2) } 
+    =>
+    if isPriorityLane(LId) and isPriorityLane(LId') and not areConflict(LId, LId')
+    then
+        { (fstat: nEnd) | (istat: true) | (clock: T, B, B') | LSet ;; (l[LId']: VList) | (v[VId]: LId, crossing, VT, VT) ;; (v[VId']: LId', crossing, VT2, VT2) ;; letCross(VList, VSet) }
+    else
+        { (fstat: nEnd) | (istat: true) | (clock: T, B, B') | LSet ;; (l[LId']: VList) | VSet ;; (v[VId]: LId, crossing, VT, VT) ;; (v[VId']: LId', waiting, VT2, VT2) }
+    fi [narrowing] .
+
+    --- Exit: it makes the vehicle go from CROSSING to CROSSED. Exit intersection
+    --- One transition:
+    rl [exit1] :
+    { (fstat: nEnd) | (istat: true) | (clock: T, B, B') | LSet ;; (l[LId]: (VId VList)) | VSet ;; (v[VId]: LId, crossing, VT, VT') } 
+    =>
+    if haveApproached?(VSet)
+    then
+        if isOccupied(VSet)
+        then
+            { (fstat: nEnd) | (istat: true) | (clock: T, B, true) | LSet ;; (l[LId]: (VList)) | (v[VId]: LId, crossed, VT, VT') ;; checkWaiting(VSet) } 
+        else
+            { (fstat: nEnd) | (istat: false) | (clock: T, B, true) | LSet ;; (l[LId]: (VList)) | (v[VId]: LId, crossed, VT, VT') ;; checkWaiting(VSet) } 
+        fi
+    else 
+        if isOccupied(VSet)
+        then 
+            { (fstat: nEnd) | (istat: true) | (clock: T, B, B') | LSet ;; (l[LId]: (VList)) | (v[VId]: LId, crossed, VT, VT') ;; checkWaiting(VSet) } 
+        else
+            { (fstat: nEnd) | (istat: false) | (clock: T, B, B') | LSet ;; (l[LId]: (VList)) | (v[VId]: LId, crossed, VT, VT') ;; checkWaiting(VSet) } 
+        fi
+    fi [narrowing] .
+    
+endm
