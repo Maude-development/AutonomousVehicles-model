@@ -1,3 +1,3 @@
-# TFM
+# Autonomous vehicles control model: intersection
 
-My TFM for 2021/2022, which models an intersection that can be model-checked as well as verified through narrowing.
+Master's thesis for 2021-2022 course at MUITSS (Universitat Politècnica de València), which models an intersection that can be model-checked as well as verified through narrowing in the Maude programming language.
